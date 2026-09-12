@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Unit Tracker</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="dashboard-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">U</div>
+        <span>unitflow</span>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-label">Workspace</div>
+        <button class="nav-item active">
+          <span class="nav-icon">▣</span>
+          Overview
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">▤</span>
+          Unit registry
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">⎇</span>
+          Branches
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">◉</span>
+          Accounts
+        </button>
+      </nav>
+    </aside>
+
+    <div class="workspace">
+      <header class="workspace-topbar">
+        <div class="breadcrumb">Workspace <span>/</span> Overview</div>
+
+        <div class="topbar-right">
+          <div class="sync-pill">
+            <span class="dot live"></span>
+            <span id="syncStatus">Live sync</span>
+          </div>
+
+          <div class="user-pill">
+            <div class="user-avatar">TS</div>
+            <span>Technician</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="header-row">
+          <div class="heading-block">
+            <div class="eyebrow">Wednesday, September 9, 2026</div>
+            <h1>Good morning, Technician.</h1>
+            <p>Here’s what’s moving across your client units today.</p>
+          </div>
+
+          <button class="register-btn">+ Register unit</button>
+        </div>
+
+        <section class="summary-grid" id="summaryCards"></section>
+
+        <section class="lower-grid">
+          <div class="panel table-panel">
+            <div class="panel-header">
+              <h2>Recent unit activity</h2>
+              <a href="#">View all →</a>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Unit code</th>
+                    <th>Client name</th>
+                    <th>Specs</th>
+                    <th>Unit price</th>
+                    <th>Status</th>
+                    <th>Current loc.</th>
+                  </tr>
+                </thead>
+                <tbody id="unitTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="panel branch-panel">
+            <div class="panel-header">
+              <h2>Branch pulse</h2>
+              <a href="#">Manage →</a>
+            </div>
+
+            <div id="branchPulseList" class="branch-list"></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="gs/config.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
