@@ -10,7 +10,7 @@ const messageModalBackdrop = document.getElementById('messageModalBackdrop');
 const messageModalBody = document.getElementById('messageModalBody');
 const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
 const okMessageModalBtn = document.getElementById('okMessageModalBtn');
-const unitSearchInput = document.querySelector('.search-box input');
+const unitSearchInput = document.getElementById('unitSearchInput') || document.querySelector('.search-box input');
 let activeEditCode = '';
 let pendingConfirmAction = null;
 let registryRowsCache = [];
@@ -417,15 +417,19 @@ async function loadRegistryUnits() {
   }
 }
 
+function normalizeSearchText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function renderRegistryTable(rows) {
   if (!unitRegistryTableBody) return;
 
-  const searchTerm = String(unitSearchInput ? unitSearchInput.value : '').trim().toLowerCase();
+  const searchTerm = normalizeSearchText(unitSearchInput ? unitSearchInput.value : '');
   const filteredRows = !searchTerm
     ? rows
     : rows.filter((unit) => {
-        const unitCode = String(unit.unitCode || unit.code || '').trim().toLowerCase();
-        const clientName = String(unit.clientName || '').trim().toLowerCase();
+        const unitCode = normalizeSearchText(unit.unitCode || unit.code || '');
+        const clientName = normalizeSearchText(unit.clientName || '');
         return unitCode.includes(searchTerm) || clientName.includes(searchTerm);
       });
 
