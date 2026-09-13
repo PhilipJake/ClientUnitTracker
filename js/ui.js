@@ -7,14 +7,37 @@ const UI = {
 
 function renderSummary(units) {
   const total = units.length;
+  const now = new Date();
+  const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+
   const activeTracking = units.filter((unit) => {
     const status = normalizeStatus(unit.status);
-    return status === 'in stock' || status === 'assigned';
+    const returnedDate = unit.dateReleased || unit.dateReturn || unit.dateReceived;
+    if (!returnedDate) return false;
+
+    const parsedDate = new Date(returnedDate);
+    if (Number.isNaN(parsedDate.getTime())) return false;
+
+    const ageMs = now.getTime() - parsedDate.getTime();
+    const isReturnedWithinTwoWeeks = ageMs <= twoWeeksMs && (status.includes('returned') || status.includes('released'));
+    const isUnderObservation = status.includes('observation') || status.includes('for observation');
+    return isReturnedWithinTwoWeeks || isUnderObservation;
   }).length;
+
   const needsAttention = units.filter((unit) => {
     const status = normalizeStatus(unit.status);
-    return status.includes('return') || status.includes('pending') || status.includes('released');
+    const returnedDate = unit.dateReleased || unit.dateReturn || unit.dateReceived;
+    if (!returnedDate) return false;
+
+    const parsedDate = new Date(returnedDate);
+    if (Number.isNaN(parsedDate.getTime())) return false;
+
+    const ageMs = now.getTime() - parsedDate.getTime();
+    const isOverdue = ageMs > twoWeeksMs;
+    const hasNotBeenReleased = !(status.includes('released') || status.includes('returned') || status.includes('pending'));
+    return isOverdue && hasNotBeenReleased;
   }).length;
+
   const branches = new Set(units.map((unit) => unit.uploadedBranch).filter(Boolean)).size;
 
   const cards = [
