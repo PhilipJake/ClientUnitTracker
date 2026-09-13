@@ -13,6 +13,10 @@ function doPost(e) {
     return deleteBranchRow(spreadsheet, values.branchName || values.name || '');
   }
 
+  if (action === 'deleteaccount') {
+    return deleteAccountRow(spreadsheet, values.username || values.userName || values.accountUsername || '');
+  }
+
   if (action === 'updatebranch') {
     return updateBranchRow(spreadsheet, values);
   }
@@ -129,6 +133,35 @@ function updateAccountBranchRow(spreadsheet, values) {
   }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Account not found for branch update' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function deleteAccountRow(spreadsheet, username) {
+  if (!username) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Missing username' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const sheet = spreadsheet.getSheetByName('Accounts') || spreadsheet.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+
+  if (!data.length) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Accounts sheet is empty' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const headerRow = data[0] || [];
+  const usernameIndex = headerRow.findIndex((header) => String(header).trim().toLowerCase().includes('username'));
+
+  if (usernameIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Username column not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+    if (String(data[rowIndex][usernameIndex] || '').trim() === String(username).trim()) {
+      sheet.deleteRow(rowIndex + 1);
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, action: 'deleteAccount', deletedUsername: username })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Account not found' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function updateAccountRow(spreadsheet, values) {
