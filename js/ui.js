@@ -136,9 +136,9 @@ function statusClass(status) {
 function formatCurrency(value) {
   const cleaned = Number(String(value || '').replace(/[^0-9.-]/g, ''));
   if (!Number.isFinite(cleaned)) return value || '—';
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-PH', {
     style: 'currency',
-    currency: 'USD'
+    currency: 'PHP'
   }).format(cleaned);
 }
 

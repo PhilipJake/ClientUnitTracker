@@ -9,6 +9,14 @@ function doPost(e) {
   const values = e && e.parameter ? e.parameter : {};
   const action = String(values.action || 'units').toLowerCase();
 
+  if (action === 'deleteunit') {
+    return deleteUnitRow(spreadsheet, values.unitCode || values.code || '');
+  }
+
+  if (action === 'updateunit') {
+    return updateUnitRow(spreadsheet, values);
+  }
+
   if (action === 'deletebranch') {
     return deleteBranchRow(spreadsheet, values.branchName || values.name || '');
   }
@@ -47,7 +55,37 @@ function doPost(e) {
     action,
     sheetName,
     inserted: row
-  }));
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getCodeColumnIndex(headerRow) {
+  const normalizedHeaders = (headerRow || []).map((header) => String(header).trim().toLowerCase());
+  const matchIndex = normalizedHeaders.findIndex((header) => ['code', 'unit code', 'unitcode'].includes(header));
+  return matchIndex;
+}
+
+function deleteUnitRow(spreadsheet, unitCode) {
+  if (!unitCode) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Missing unit code' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const sheet = spreadsheet.getSheetByName('Units') || spreadsheet.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+  const headerRow = data[0] || [];
+  const codeIndex = getCodeColumnIndex(headerRow);
+
+  if (codeIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Code column not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+    if (String(data[rowIndex][codeIndex] || '').trim() === String(unitCode).trim()) {
+      sheet.deleteRow(rowIndex + 1);
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, action: 'deleteUnit', deletedCode: unitCode })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Unit not found' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function deleteBranchRow(spreadsheet, branchName) {
@@ -72,6 +110,31 @@ function deleteBranchRow(spreadsheet, branchName) {
   }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Branch not found' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function updateUnitRow(spreadsheet, values) {
+  const sheet = spreadsheet.getSheetByName('Units') || spreadsheet.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+  const headerRow = data[0] || [];
+  const codeIndex = getCodeColumnIndex(headerRow);
+  const targetCode = String(values.originalUnitCode || values.unitCode || '').trim();
+
+  if (codeIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Code column not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const rowToWrite = buildRowForAction('units', values);
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+    const currentCode = String(data[rowIndex][codeIndex] || '').trim();
+    if (currentCode === targetCode) {
+      const targetRange = sheet.getRange(rowIndex + 1, 1, 1, rowToWrite.length);
+      targetRange.setValues([rowToWrite]);
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, action: 'updateUnit', updatedCode: targetCode })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Unit not found for update' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function updateBranchRow(spreadsheet, values) {

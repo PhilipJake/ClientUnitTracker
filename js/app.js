@@ -7,6 +7,28 @@ const state = {
   }
 };
 
+function setOverviewHeader() {
+  const dateElement = document.getElementById('overviewDate');
+  const greetingElement = document.getElementById('overviewGreeting');
+
+  if (dateElement) {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'Asia/Manila'
+    });
+    dateElement.textContent = formatter.format(now);
+  }
+
+  if (greetingElement) {
+    const fullName = localStorage.getItem('unitflowFullName') || localStorage.getItem('unitflowUser') || 'User';
+    greetingElement.textContent = `Welcome, ${fullName}.`;
+  }
+}
+
 async function loadUnits() {
   try {
     setSyncStatus('Syncing…');
@@ -34,6 +56,7 @@ function startPolling() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setOverviewHeader();
   loadUnits();
   startPolling();
 });
