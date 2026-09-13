@@ -10,8 +10,10 @@ const messageModalBackdrop = document.getElementById('messageModalBackdrop');
 const messageModalBody = document.getElementById('messageModalBody');
 const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
 const okMessageModalBtn = document.getElementById('okMessageModalBtn');
+const unitSearchInput = document.querySelector('.search-box input');
 let activeEditCode = '';
 let pendingConfirmAction = null;
+let registryRowsCache = [];
 
 function showPopupMessage(message, onConfirm = null) {
   if (!messageModalBackdrop || !messageModalBody) return alert(message);
@@ -48,9 +50,11 @@ function openUnitModal(mode = 'create', unit = null) {
 
     const unitPriceField = unitForm.elements.namedItem('unitPrice');
     if (unitPriceField) {
-      unitPriceField.hidden = true;
+      unitPriceField.hidden = false;
       unitPriceField.disabled = true;
-      unitPriceField.value = '';
+      unitPriceField.setAttribute('readonly', 'readonly');
+      unitPriceField.style.background = '#f4f6f8';
+      unitPriceField.style.cursor = 'not-allowed';
     }
 
     const role = localStorage.getItem('unitflowRole');
@@ -74,6 +78,9 @@ function openUnitModal(mode = 'create', unit = null) {
     if (unitPriceField) {
       unitPriceField.hidden = false;
       unitPriceField.disabled = false;
+      unitPriceField.removeAttribute('readonly');
+      unitPriceField.style.background = '';
+      unitPriceField.style.cursor = '';
     }
 
     const role = localStorage.getItem('unitflowRole');
@@ -323,6 +330,12 @@ function initUnitModal() {
     unitForm.addEventListener('submit', saveUnitToSheet);
   }
 
+  if (unitSearchInput) {
+    unitSearchInput.addEventListener('input', () => {
+      renderRegistryTable(registryRowsCache);
+    });
+  }
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && backdrop && backdrop.classList.contains('visible')) {
       closeUnitModal();
@@ -396,55 +409,72 @@ async function loadRegistryUnits() {
 
   try {
     const rows = await DATA.fetchUnits();
-
-    if (!rows.length) {
-      unitRegistryTableBody.innerHTML = '<tr><td colspan="14" class="empty-state">No units found in the live spreadsheet.</td></tr>';
-      return;
-    }
-
-    unitRegistryTableBody.innerHTML = rows
-      .map((unit) => {
-        const code = unit.unitCode || '—';
-        const specs = unit.specs || '—';
-        const price = unit.unitPrice || '—';
-        const brand = unit.unitBrand || unit.unitBrandName || unit.brand || '—';
-        const client = unit.clientName || '—';
-        const warranty = unit.warranty || '—';
-        const datePurchase = unit.dateReceived || unit.datePurchase || '—';
-        const dateReturn = unit.dateReleased || unit.dateReturn || '—';
-        const runningDays = computeRunningDays(unit.dateReleased || unit.dateReturn || unit.dateReceived) || '—';
-        const problem = unit.unitProblem || unit.problem || '—';
-        const status = unit.status || 'Unknown';
-        const branch = unit.uploadedBranch || unit.branchLocation || unit.currentLocation || '—';
-        const inclusion = unit.inclusion || '—';
-
-        return `
-          <tr data-unit-code="${escapeHtml(code)}">
-            <td>${escapeHtml(code)}</td>
-            <td>${escapeHtml(specs)}</td>
-            <td>${escapeHtml(price ? formatCurrency(price) : '—')}</td>
-            <td>${escapeHtml(brand)}</td>
-            <td>${escapeHtml(client)}</td>
-            <td>${escapeHtml(warranty)}</td>
-            <td>${escapeHtml(datePurchase)}</td>
-            <td>${escapeHtml(dateReturn)}</td>
-            <td>${escapeHtml(runningDays)}</td>
-            <td>${escapeHtml(problem)}</td>
-            <td><span class="badge ${statusClass(status)}">${escapeHtml(status)}</span></td>
-            <td><span class="branch-tag ${branchClass(branch)}">${escapeHtml(branch)}</span></td>
-            <td>${escapeHtml(inclusion)}</td>
-            <td class="table-actions">
-              <button class="edit">Edit</button>
-              <button class="delete">Delete</button>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
+    registryRowsCache = Array.isArray(rows) ? rows : [];
+    renderRegistryTable(registryRowsCache);
   } catch (error) {
     console.error(error);
     unitRegistryTableBody.innerHTML = '<tr><td colspan="14" class="empty-state">Unable to load live spreadsheet data.</td></tr>';
   }
+}
+
+function renderRegistryTable(rows) {
+  if (!unitRegistryTableBody) return;
+
+  const searchTerm = String(unitSearchInput ? unitSearchInput.value : '').trim().toLowerCase();
+  const filteredRows = !searchTerm
+    ? rows
+    : rows.filter((unit) => {
+        const unitCode = String(unit.unitCode || unit.code || '').trim().toLowerCase();
+        const clientName = String(unit.clientName || '').trim().toLowerCase();
+        return unitCode.includes(searchTerm) || clientName.includes(searchTerm);
+      });
+
+  if (!filteredRows.length) {
+    unitRegistryTableBody.innerHTML = '<tr><td colspan="14" class="empty-state">No matching units found.</td></tr>';
+    return;
+  }
+
+  const currentRole = localStorage.getItem('unitflowRole');
+
+  unitRegistryTableBody.innerHTML = filteredRows
+    .map((unit) => {
+      const code = unit.unitCode || '—';
+      const specs = unit.specs || '—';
+      const price = unit.unitPrice || '—';
+      const brand = unit.unitBrand || unit.unitBrandName || unit.brand || '—';
+      const client = unit.clientName || '—';
+      const warranty = unit.warranty || '—';
+      const datePurchase = formatDateDisplay(unit.dateReceived || unit.datePurchase || '');
+      const dateReturn = formatDateDisplay(unit.dateReleased || unit.dateReturn || '');
+      const runningDays = computeRunningDays(unit.dateReleased || unit.dateReturn || unit.dateReceived) || '—';
+      const problem = unit.unitProblem || unit.problem || '—';
+      const status = unit.status || 'Unknown';
+      const branch = unit.uploadedBranch || unit.branchLocation || unit.currentLocation || '—';
+      const inclusion = unit.inclusion || '—';
+      const isOfficeRole = currentRole === 'Office';
+
+      return `
+        <tr data-unit-code="${escapeHtml(code)}">
+          <td>${escapeHtml(code)}</td>
+          <td>${escapeHtml(specs)}</td>
+          <td>${escapeHtml(price ? formatCurrency(price) : '—')}</td>
+          <td>${escapeHtml(brand)}</td>
+          <td>${escapeHtml(client)}</td>
+          <td>${escapeHtml(warranty)}</td>
+          <td>${escapeHtml(datePurchase)}</td>
+          <td>${escapeHtml(dateReturn)}</td>
+          <td>${escapeHtml(runningDays)}</td>
+          <td>${escapeHtml(problem)}</td>
+          <td><span class="badge ${statusClass(status)}">${escapeHtml(status)}</span></td>
+          <td><span class="branch-tag ${branchClass(branch)}">${escapeHtml(branch)}</span></td>
+          <td>${escapeHtml(inclusion)}</td>
+          <td class="table-actions">
+            ${isOfficeRole ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
 }
 
 function computeRunningDays(dateValue) {
@@ -455,6 +485,24 @@ function computeRunningDays(dateValue) {
 
   const diffMs = Date.now() - date.getTime();
   return String(Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24))));
+}
+
+function formatDateDisplay(value) {
+  if (!value) return '—';
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return '—';
+
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return trimmed;
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+
+  return `${month}/${day}/${year}`;
 }
 
 function escapeHtml(value) {

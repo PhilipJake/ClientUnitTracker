@@ -396,13 +396,15 @@ button, input, select {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 580px;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 th, td {
   text-align: left;
   padding: 12px 10px;
   border-bottom: 1px solid var(--line);
+  word-break: break-word;
 }
 
 th {
@@ -721,7 +723,9 @@ td {
 
 .table-actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+  min-width: 90px;
 }
 
 .table-actions button {
@@ -731,6 +735,20 @@ td {
   font-weight: 700;
   font-size: 0.75rem;
   cursor: pointer;
+  width: 100%;
+}
+
+.table-actions .view-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #eef2f7;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-height: 34px;
 }
 
 .table-actions .edit {

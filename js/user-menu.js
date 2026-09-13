@@ -100,7 +100,7 @@ function applyRoleRestrictions() {
   });
 
   if (role === 'Office') {
-    document.querySelectorAll('.action-btn.primary, #openUnitModalBtn, #openBranchModalBtn, #openAccountModalBtn').forEach((element) => {
+    document.querySelectorAll('.page-actions .action-btn, .action-btn.primary, #openUnitModalBtn, #openBranchModalBtn, #openAccountModalBtn').forEach((element) => {
       element.style.display = 'none';
     });
 
