@@ -6,6 +6,18 @@ const fallbackAccounts = {
   'technician': { password: 'tech123', role: 'Technician', fullName: 'Technician' }
 };
 
+function resolveAppPath(targetPath) {
+  const cleaned = String(targetPath || '').replace(/^\.\//, '').replace(/^\.\.\//, '');
+  const currentPath = window.location.pathname.replace(/\/+$/, '');
+  const isInsidePagesFolder = currentPath.includes('/pages/') || currentPath.endsWith('/pages');
+
+  if (isInsidePagesFolder) {
+    return cleaned.startsWith('pages/') ? `../${cleaned}` : `../${cleaned}`;
+  }
+
+  return cleaned;
+}
+
 const loginForm = document.getElementById('loginForm');
 
 async function authenticateAccount(username, password) {
@@ -82,6 +94,6 @@ if (loginForm) {
     localStorage.setItem('unitflowFullName', account.fullName || username);
     localStorage.setItem('unitflowBranch', account.branch || '');
 
-    window.location.href = '../index.html';
+    window.location.href = resolveAppPath('index.html');
   });
 }

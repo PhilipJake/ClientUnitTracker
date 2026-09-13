@@ -43,6 +43,18 @@ function getAllowedPagesForRole(role) {
   return config.pages || [];
 }
 
+function resolveRoutePath(targetPath) {
+  const cleaned = String(targetPath || '').replace(/^\.\//, '').replace(/^\.\.\//, '');
+  const currentPath = window.location.pathname.replace(/\/+$/, '');
+  const isInsidePagesFolder = currentPath.includes('/pages/') || currentPath.endsWith('/pages');
+
+  if (isInsidePagesFolder) {
+    return cleaned.startsWith('pages/') ? `../${cleaned}` : `../${cleaned}`;
+  }
+
+  return cleaned;
+}
+
 function applyRoleRestrictions() {
   const role = getCurrentRole();
   const allowedPages = getAllowedPagesForRole(role);
@@ -57,12 +69,12 @@ function applyRoleRestrictions() {
 
   const viewAllUnitsLink = document.getElementById('viewAllUnitsLink');
   if (viewAllUnitsLink) {
-    viewAllUnitsLink.href = 'pages/unit-registry.html';
+    viewAllUnitsLink.href = resolveRoutePath('pages/unit-registry.html');
   }
 
   if (!allowedPages.some((page) => currentPagePath.endsWith(page.replace(/^\.\//, '').replace(/^\.\.\//, '')))) {
-    const fallbackPage = allowedPages[0] || '../index.html';
-    window.location.href = fallbackPage;
+    const fallbackPage = allowedPages[0] || 'index.html';
+    window.location.href = resolveRoutePath(fallbackPage);
     return;
   }
 
@@ -113,7 +125,7 @@ function logoutUser() {
   localStorage.removeItem('unitflowUser');
   localStorage.removeItem('unitflowFullName');
   localStorage.removeItem('unitflowBranch');
-  window.location.href = '../pages/login.html';
+  window.location.href = resolveRoutePath('pages/login.html');
 }
 
 function initUserMenu() {
