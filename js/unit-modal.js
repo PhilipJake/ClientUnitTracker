@@ -336,6 +336,81 @@ function initUnitModal() {
     });
   }
 
+  const exportButton = document.getElementById('exportUnitCsvBtn');
+  if (exportButton) {
+    exportButton.addEventListener('click', () => {
+      const role = localStorage.getItem('unitflowRole');
+      const allowedRoles = ['Super Admin', 'Main Head Admin', 'Office'];
+
+      if (!allowedRoles.includes(role || '')) {
+        showPopupMessage('You do not have permission to export the unit registry.');
+        return;
+      }
+
+      const rows = registryRowsCache || [];
+      const searchTerm = normalizeSearchText(unitSearchInput ? unitSearchInput.value : '');
+      const filteredRows = !searchTerm
+        ? rows
+        : rows.filter((unit) => {
+            const unitCode = normalizeSearchText(unit.unitCode || unit.code || '');
+            const clientName = normalizeSearchText(unit.clientName || '');
+            return unitCode.includes(searchTerm) || clientName.includes(searchTerm);
+          });
+
+      if (!filteredRows.length) {
+        showPopupMessage('There are no matching units to export.');
+        return;
+      }
+
+      const headers = [
+        'Unit Code',
+        'Unit Specs',
+        'Unit Price',
+        'Unit Brand',
+        'Client Name',
+        'Warranty',
+        'Date of Purchase',
+        'Date of Return',
+        'Running Days',
+        'Unit Problem',
+        'Status',
+        'Branch Location',
+        'Inclusion'
+      ];
+
+      const rowsCsv = filteredRows.map((unit) => [
+        unit.unitCode || '',
+        unit.specs || '',
+        unit.unitPrice || '',
+        unit.unitBrand || '',
+        unit.clientName || '',
+        unit.warranty || '',
+        unit.dateReceived || unit.datePurchase || '',
+        unit.dateReleased || unit.dateReturn || '',
+        unit.runningDays || '',
+        unit.unitProblem || '',
+        unit.status || '',
+        unit.uploadedBranch || unit.branchLocation || '',
+        unit.inclusion || ''
+      ]);
+
+      const csvContent = [headers, ...rowsCsv]
+        .map((line) => line.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'unit-registry-export.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      showPopupMessage('Unit registry exported successfully.');
+    });
+  }
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && backdrop && backdrop.classList.contains('visible')) {
       closeUnitModal();

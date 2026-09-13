@@ -100,9 +100,14 @@ function applyRoleRestrictions() {
   });
 
   if (role === 'Office') {
-    document.querySelectorAll('.page-actions .action-btn, .action-btn.primary, #openUnitModalBtn, #openBranchModalBtn, #openAccountModalBtn').forEach((element) => {
+    document.querySelectorAll('.action-btn.primary, #openUnitModalBtn, #openBranchModalBtn, #openAccountModalBtn').forEach((element) => {
       element.style.display = 'none';
     });
+
+    const exportButton = document.getElementById('exportUnitCsvBtn');
+    if (exportButton) {
+      exportButton.style.display = 'none';
+    }
 
     document.querySelectorAll('.table-actions button.edit, .table-actions button.delete').forEach((button) => {
       button.disabled = true;
