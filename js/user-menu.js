@@ -129,6 +129,11 @@ function logoutUser() {
 }
 
 function initUserMenu() {
+  if (!localStorage.getItem('unitflowRole')) {
+    window.location.href = resolveRoutePath('pages/login.html');
+    return;
+  }
+
   const userNameElement = document.getElementById('topbarUserName');
   const userMenuButton = document.getElementById('userMenuButton');
   const userDropdown = document.getElementById('userDropdown');

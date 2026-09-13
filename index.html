@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Client Unit Tracker</title>
     <link rel="stylesheet" href="css/styles.css" />
+    <script>
+      (function () {
+        try {
+          if (!localStorage.getItem('unitflowRole')) {
+            const path = window.location.pathname.replace(/\/+$/, '');
+            const isPagesRoute = path.includes('/pages/');
+            const target = isPagesRoute ? '../login.html' : 'login.html';
+            window.location.replace(target);
+          }
+        } catch (error) {
+          console.warn('Auth redirect failed:', error);
+        }
+      })();
+    </script>
   </head>
   <body class="dashboard-shell">
     <aside class="sidebar">
