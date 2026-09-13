@@ -534,19 +534,19 @@ function renderRegistryTable(rows) {
 
       return `
         <tr data-unit-code="${escapeHtml(code)}">
-          <td>${escapeHtml(code)}</td>
+          <td><span class="center-stack">${renderStackedText(code)}</span></td>
           <td>${escapeHtml(specs)}</td>
-          <td>${escapeHtml(price ? formatCurrency(price) : '—')}</td>
+          <td><span class="center-stack">${renderStackedText(price ? formatCurrency(price) : '—')}</span></td>
           <td>${escapeHtml(brand)}</td>
           <td>${escapeHtml(client)}</td>
-          <td>${escapeHtml(warranty)}</td>
-          <td>${escapeHtml(datePurchase)}</td>
-          <td>${escapeHtml(dateReturn)}</td>
-          <td>${escapeHtml(runningDays)}</td>
+          <td><span class="center-stack">${renderStackedText(warranty)}</span></td>
+          <td><span class="center-stack">${renderStackedText(datePurchase)}</span></td>
+          <td><span class="center-stack">${renderStackedText(dateReturn)}</span></td>
+          <td><span class="center-stack">${renderStackedText(runningDays)}</span></td>
           <td>${escapeHtml(problem)}</td>
-          <td><span class="badge ${statusClass(status)}">${escapeHtml(status)}</span></td>
-          <td><span class="branch-tag ${branchClass(branch)}">${escapeHtml(branch)}</span></td>
-          <td>${escapeHtml(inclusion)}</td>
+          <td><span class="badge ${statusClass(status)}"><span class="center-stack">${renderStackedText(status)}</span></span></td>
+          <td><span class="branch-tag ${branchClass(branch)}"><span class="center-stack">${renderBranchLocation(branch)}</span></span></td>
+          <td><span class="center-stack">${renderInclusionText(inclusion)}</span></td>
           <td class="table-actions">
             ${isOfficeRole ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
           </td>
@@ -582,6 +582,47 @@ function formatDateDisplay(value) {
   const year = date.getFullYear();
 
   return `${month}/${day}/${year}`;
+}
+
+function renderStackedText(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text === '—') return '—';
+  return text
+    .split(/\s+/)
+    .map((word) => `<span class="line">${escapeHtml(word)}</span>`)
+    .join('');
+}
+
+function renderBranchLocation(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text === '—') return '—';
+
+  const cleaned = text.replace(/\s*[\/|,-]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const match = cleaned.match(/^([A-Za-z0-9]+)\s+(.+)$/);
+
+  if (match) {
+    const code = match[1].trim();
+    const location = match[2].trim();
+    return `<span class="line">${escapeHtml(code)}</span><span class="line">${escapeHtml(location)}</span>`;
+  }
+
+  return `<span class="line">${escapeHtml(cleaned)}</span>`;
+}
+
+function renderInclusionText(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text === '—') return '—';
+
+  const items = text
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!items.length) return '—';
+
+  return items
+    .map((item) => `<span class="line">${escapeHtml(item)}</span>`)
+    .join('');
 }
 
 function escapeHtml(value) {

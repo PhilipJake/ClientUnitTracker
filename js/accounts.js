@@ -64,6 +64,10 @@ async function loadBranchOptions() {
   }
 }
 
+function isProtectedSuperAdminAccount(accountType, currentRole) {
+  return currentRole === 'Main Head Admin' && String(accountType || '').trim() === 'Super Admin';
+}
+
 async function loadAccounts() {
   try {
     const rows = await DATA.fetchAccounts();
@@ -85,6 +89,7 @@ async function loadAccounts() {
         const branch = row.branch || row.branchLocation || '';
         const created = row.created || row.createdAt || row.dateCreated || '';
         const status = row.status || 'Active';
+        const isProtected = isProtectedSuperAdminAccount(accountType, currentRole);
 
         const statusClass = normalizeAccountStatus(status) === 'inactive' ? 'released' : 'in-stock';
 
@@ -98,7 +103,7 @@ async function loadAccounts() {
             <td>${escapeHtml(created || '—')}</td>
             <td><span class="badge ${statusClass}">${escapeHtml(status || 'Active')}</span></td>
             <td class="table-actions">
-              ${isOfficeRole ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
+              ${isOfficeRole || isProtected ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
             </td>
           </tr>
         `;
@@ -167,6 +172,7 @@ async function saveAccountToSheet(event) {
 
   if (!accountForm) return;
 
+  const currentRole = localStorage.getItem('unitflowRole');
   const formData = new FormData(accountForm);
   const username = String(formData.get('accountUsername') || '').trim();
   const password = String(formData.get('accountPassword') || '').trim();
@@ -174,10 +180,33 @@ async function saveAccountToSheet(event) {
   const fullName = String(formData.get('accountFullName') || '').trim();
   const email = String(formData.get('accountEmail') || '').trim();
   const branch = String(formData.get('accountBranch') || '').trim();
+  const isEditMode = accountForm.dataset.mode === 'edit';
 
   if (!username || !password || !accountType || !fullName || !email) {
     alert('Please complete all required account fields.');
     return;
+  }
+
+  if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
+    alert('Main Head Admin cannot edit or save a Super Admin account.');
+    return;
+  }
+
+  if (isEditMode && !['Super Admin', 'Main Head Admin'].includes(currentRole || '')) {
+    try {
+      const rows = await DATA.fetchAccounts();
+      const account = rows.find((item) => String(item.username || item.userName || item.accountUsername || '').trim() === (activeEditUsername || username));
+      const previousType = String(account ? (account.accountType || account.role || account.userType || '') : '').trim();
+
+      if (previousType && previousType !== accountType) {
+        alert('Only Super Admin and Main Head Admin can change an account type.');
+        return;
+      }
+    } catch (error) {
+      console.error('Unable to validate account type change:', error);
+      alert('Only Super Admin and Main Head Admin can change an account type.');
+      return;
+    }
   }
 
   const appScriptUrl = window.GS_CONFIG ? window.GS_CONFIG.appScriptUrl : '';
@@ -187,9 +216,8 @@ async function saveAccountToSheet(event) {
     return;
   }
 
-  const isEditMode = accountForm.dataset.mode === 'edit';
   const body = new URLSearchParams({
-    action: isEditMode ? 'updateAccount' : 'accounts',
+    action: isEditMode ? 'updateaccount' : 'accounts',
     username,
     password,
     accountType,
@@ -319,6 +347,14 @@ if (accountsTableBody) {
       const rows = await DATA.fetchAccounts();
       const account = rows.find((item) => String(item.username || item.userName || item.accountUsername || '').trim() === username);
       if (account) {
+        const currentRole = localStorage.getItem('unitflowRole');
+        const accountType = String(account.accountType || account.role || account.userType || '').trim();
+
+        if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
+          alert('Main Head Admin cannot edit a Super Admin account.');
+          return;
+        }
+
         await loadBranchOptions();
         openAccountModal('edit', account);
       } else {
@@ -327,6 +363,16 @@ if (accountsTableBody) {
     }
 
     if (button.classList.contains('delete')) {
+      const rows = await DATA.fetchAccounts();
+      const account = rows.find((item) => String(item.username || item.userName || item.accountUsername || '').trim() === username);
+      const accountType = account ? String(account.accountType || account.role || account.userType || '').trim() : '';
+      const currentRole = localStorage.getItem('unitflowRole');
+
+      if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
+        alert('Main Head Admin cannot delete a Super Admin account.');
+        return;
+      }
+
       const confirmed = window.confirm(`Delete account ${username}?`);
       if (!confirmed) return;
       await deleteAccountFromSheet(username);

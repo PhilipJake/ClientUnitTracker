@@ -29,6 +29,10 @@ function doPost(e) {
     return updateAccountBranchRow(spreadsheet, values);
   }
 
+  if (action === 'updateaccount') {
+    return updateAccountRow(spreadsheet, values);
+  }
+
   let sheetName = 'Units';
   if (action === 'accounts') {
     sheetName = 'Accounts';
@@ -188,6 +192,36 @@ function updateAccountBranchRow(spreadsheet, values) {
   }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Account not found for branch update' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function updateAccountRow(spreadsheet, values) {
+  const sheet = spreadsheet.getSheetByName('Accounts') || spreadsheet.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+
+  if (!data.length) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Accounts sheet is empty' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const headerRow = data[0] || [];
+  const usernameIndex = headerRow.findIndex((header) => String(header).trim().toLowerCase().includes('username'));
+  const targetUsername = String(values.originalUsername || values.username || '').trim();
+
+  if (usernameIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Username column not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const rowToWrite = buildRowForAction('accounts', values);
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+    const currentUsername = String(data[rowIndex][usernameIndex] || '').trim();
+    if (currentUsername === targetUsername || (targetUsername === '' && currentUsername === String(values.username || '').trim())) {
+      const targetRange = sheet.getRange(rowIndex + 1, 1, 1, rowToWrite.length);
+      targetRange.setValues([rowToWrite]);
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, action: 'updateAccount', updatedUsername: values.username || targetUsername })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Account not found for update' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function ensureSheet(spreadsheet, sheetName) {
