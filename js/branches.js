@@ -22,6 +22,9 @@ async function loadBranches() {
       return;
     }
 
+    const currentRole = localStorage.getItem('unitflowRole');
+    const isOfficeRole = currentRole === 'Office';
+
     branchesTableBody.innerHTML = rows
       .map((row) => {
         const branchName = row.branchName || row.branchname || row.name || '';
@@ -40,8 +43,7 @@ async function loadBranches() {
             <td>${escapeHtml(manager || '—')}</td>
             <td><span class="badge ${badgeClass}">${escapeHtml(status || 'Active')}</span></td>
             <td class="table-actions">
-              <button class="edit">Edit</button>
-              <button class="delete">Delete</button>
+              ${isOfficeRole ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
             </td>
           </tr>
         `;
@@ -110,6 +112,10 @@ function syncBranchName() {
 
 function openBranchModal(mode = 'create', branch = null) {
   if (!branchModalBackdrop) return;
+
+  if (localStorage.getItem('unitflowRole') === 'Office') {
+    return;
+  }
 
   activeBranchRecord = branch || null;
 
@@ -292,7 +298,12 @@ function escapeHtml(value) {
 }
 
 if (openBranchModalBtn) {
-  openBranchModalBtn.addEventListener('click', () => openBranchModal('create'));
+  openBranchModalBtn.addEventListener('click', () => {
+    if (localStorage.getItem('unitflowRole') === 'Office') {
+      return;
+    }
+    openBranchModal('create');
+  });
 }
 
 if (closeBranchModalBtn) {
@@ -327,6 +338,10 @@ if (branchesTableBody) {
   branchesTableBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button');
     if (!button) return;
+
+    if (localStorage.getItem('unitflowRole') === 'Office') {
+      return;
+    }
 
     const row = button.closest('tr');
     const branchName = row && row.dataset.branchName ? row.dataset.branchName : '';

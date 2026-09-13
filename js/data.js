@@ -159,7 +159,7 @@ function normalizeRow(rawRow) {
   const uploadedBranch = findValue(row, ['uploaded branch', 'uploadedbranch', 'branch']);
   const currentLocation = findValue(row, ['current location', 'currentlocation', 'location']);
   const dateReceived = findValue(row, ['date received', 'datereceived', 'received date']);
-  const dateReleased = findValue(row, ['date released', 'datereleased', 'released date']);
+  const dateReleased = findValue(row, ['date released', 'datereleased', 'released date', 'return date', 'returndate', 'date return', 'datereturn']);
   const status = findValue(row, ['status']);
   const accountType = findValue(row, ['account type', 'accounttype', 'role', 'user type', 'usertype']);
   const username = findValue(row, ['username', 'user name', 'user', 'login']);

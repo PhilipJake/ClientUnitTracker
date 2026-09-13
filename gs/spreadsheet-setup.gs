@@ -12,7 +12,7 @@ function initializeClientUnitTrackerSheets() {
     'Branch Location',
     'Current Location',
     'Date Received',
-    'Date Released',
+    'Return Date',
     'Warranty',
     'Unit Problem',
     'Inclusion',

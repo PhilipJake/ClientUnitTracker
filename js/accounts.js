@@ -73,6 +73,9 @@ async function loadAccounts() {
       return;
     }
 
+    const currentRole = localStorage.getItem('unitflowRole');
+    const isOfficeRole = currentRole === 'Office';
+
     accountsTableBody.innerHTML = rows
       .map((row) => {
         const username = row.username || row.userName || row.accountUsername || '';
@@ -95,8 +98,7 @@ async function loadAccounts() {
             <td>${escapeHtml(created || '—')}</td>
             <td><span class="badge ${statusClass}">${escapeHtml(status || 'Active')}</span></td>
             <td class="table-actions">
-              <button class="edit">Edit</button>
-              <button class="delete">Delete</button>
+              ${isOfficeRole ? '<span class="view-only">View only</span>' : '<button class="edit">Edit</button><button class="delete">Delete</button>'}
             </td>
           </tr>
         `;
@@ -110,6 +112,10 @@ async function loadAccounts() {
 
 function openAccountModal(mode = 'create', account = null) {
   if (!accountModalBackdrop) return;
+
+  if (localStorage.getItem('unitflowRole') === 'Office') {
+    return;
+  }
 
   if (mode === 'edit' && account) {
     activeEditUsername = String(account.username || account.userName || account.accountUsername || '').trim();
@@ -268,6 +274,9 @@ function escapeHtml(value) {
 
 if (openAccountModalBtn) {
   openAccountModalBtn.addEventListener('click', async () => {
+    if (localStorage.getItem('unitflowRole') === 'Office') {
+      return;
+    }
     await loadBranchOptions();
     openAccountModal('create');
   });
@@ -297,6 +306,10 @@ if (accountsTableBody) {
   accountsTableBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button');
     if (!button) return;
+
+    if (localStorage.getItem('unitflowRole') === 'Office') {
+      return;
+    }
 
     const row = button.closest('tr');
     const username = row && row.dataset.accountUsername ? row.dataset.accountUsername : '';
