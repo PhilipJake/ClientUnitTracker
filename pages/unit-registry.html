@@ -70,7 +70,7 @@
 
         <section class="panel table-panel">
           <div class="table-wrap">
-            <table>
+            <table class="unit-registry-table">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -182,7 +182,14 @@
 
             <div class="field-group">
               <label for="branchLocation">Branch Location</label>
-              <input id="branchLocation" name="branchLocation" type="text" placeholder="Branch name" required />
+              <input id="branchLocation" name="branchLocation" type="text" placeholder="Assigned branch" readonly required />
+            </div>
+
+            <div class="field-group">
+              <label for="currentLocation">Current Location</label>
+              <select id="currentLocation" name="currentLocation" required>
+                <option value="">Select current location</option>
+              </select>
             </div>
 
             <div class="field-group">

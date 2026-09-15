@@ -11,6 +11,8 @@ const messageModalBody = document.getElementById('messageModalBody');
 const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
 const okMessageModalBtn = document.getElementById('okMessageModalBtn');
 const unitSearchInput = document.getElementById('unitSearchInput') || document.querySelector('.search-box input');
+const currentLocationSelect = document.getElementById('currentLocation');
+const unitRegistryTableWrap = document.querySelector('.table-wrap');
 let activeEditCode = '';
 let pendingConfirmAction = null;
 let registryRowsCache = [];
@@ -63,10 +65,9 @@ function openUnitModal(mode = 'create', unit = null) {
 
     if (branchField && savedBranch) {
       branchField.value = savedBranch;
-      if (role === 'Branch Head Admin' || ['Super Admin', 'Main Head Admin', 'Office'].includes(role || '')) {
-        branchField.setAttribute('readonly', 'readonly');
-      }
+      branchField.setAttribute('readonly', 'readonly');
     }
+    setCurrentLocationOptions(savedBranch, unit.currentLocation || savedBranch);
   } else {
     activeEditCode = '';
     unitForm.dataset.mode = 'create';
@@ -85,13 +86,12 @@ function openUnitModal(mode = 'create', unit = null) {
 
     const role = localStorage.getItem('unitflowRole');
     const assignedBranch = String(localStorage.getItem('unitflowBranch') || '').trim();
-    if (role === 'Branch Head Admin' && assignedBranch) {
-      const branchField = unitForm.elements.namedItem('branchLocation');
-      if (branchField) {
-        branchField.value = assignedBranch;
-        branchField.setAttribute('readonly', 'readonly');
-      }
+    const branchField = unitForm.elements.namedItem('branchLocation');
+    if (branchField) {
+      branchField.value = assignedBranch;
+      branchField.setAttribute('readonly', 'readonly');
     }
+    setCurrentLocationOptions(assignedBranch, assignedBranch);
   }
 
   backdrop.classList.add('visible');
@@ -129,6 +129,9 @@ function populateUnitForm(unit) {
     inclusionHidden.value = inclusionValues.join(', ');
   }
 
+  const uploadedBranch = unit.uploadedBranch || unit.branchLocation || '';
+  const savedCurrentLocation = unit.currentLocation || unit.branchLocation || uploadedBranch || '';
+
   const fields = {
     unitCode: unit.unitCode || unit.code || '',
     unitSpecs: unit.unitSpecs || unit.specs || '',
@@ -140,8 +143,8 @@ function populateUnitForm(unit) {
     unitProblem: unit.unitProblem || unit.problem || '',
     status: unit.status || '',
     branchLocation: unit.branchLocation || unit.currentLocation || unit.uploadedBranch || '',
-    currentLocation: unit.currentLocation || unit.branchLocation || unit.uploadedBranch || '',
-    uploadedBranch: unit.uploadedBranch || unit.branchLocation || '',
+    currentLocation: savedCurrentLocation === uploadedBranch ? '__branch_location__' : savedCurrentLocation,
+    uploadedBranch,
     unitPrice: unit.unitPrice || ''
   };
 
@@ -151,6 +154,25 @@ function populateUnitForm(unit) {
       field.value = value;
     }
   });
+
+  setCurrentLocationOptions(uploadedBranch, savedCurrentLocation);
+}
+
+function setCurrentLocationOptions(branchLocation, selectedLocation = '') {
+  if (!currentLocationSelect) return;
+
+  const locations = [branchLocation, 'BNB Rosales', 'Warehouse']
+    .map((value) => String(value || '').trim())
+    .filter((value, index, values) => {
+      return value && values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index;
+    });
+
+  currentLocationSelect.innerHTML = locations.length
+    ? locations.map((location) => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('')
+    : '<option value="">Select current location</option>';
+
+  const selected = String(selectedLocation || '').trim();
+  currentLocationSelect.value = locations.find((location) => location.toLowerCase() === selected.toLowerCase()) || locations[0] || '';
 }
 
 function syncInclusionField() {
@@ -173,21 +195,22 @@ function normalizeSavedUnitPayload(form) {
 
   const role = localStorage.getItem('unitflowRole');
   const assignedBranch = String(localStorage.getItem('unitflowBranch') || '').trim();
-  const branchFromRecord = String(raw.uploadedBranch || raw.branchLocation || raw.currentLocation || '').trim();
+  const branchFromRecord = String(raw.uploadedBranch || raw.branchLocation || '').trim();
 
   if (role === 'Branch Head Admin' && assignedBranch) {
     raw.branchLocation = assignedBranch;
     raw.uploadedBranch = assignedBranch;
-    raw.currentLocation = assignedBranch;
   } else if (branchFromRecord) {
     raw.branchLocation = branchFromRecord;
     raw.uploadedBranch = branchFromRecord;
-    raw.currentLocation = branchFromRecord;
   }
 
   const branchLocation = String(raw.branchLocation || '').trim();
   const uploadedBranch = String(raw.uploadedBranch || raw.branchLocation || '').trim();
-  const currentLocation = String(raw.currentLocation || raw.branchLocation || '').trim();
+  const currentLocationValue = String(raw.currentLocation || '').trim();
+  const currentLocation = currentLocationValue === '__branch_location__'
+    ? uploadedBranch
+    : currentLocationValue || uploadedBranch;
   const dateReceived = String(raw.datePurchase || raw.dateReceived || '').trim();
   const dateReleased = String(raw.dateReturn || raw.dateReleased || '').trim();
 
@@ -477,6 +500,8 @@ function initUnitModal() {
   if (typeof loadRegistryUnits === 'function') {
     loadRegistryUnits();
   }
+
+  scheduleRegistryMidnightRefresh();
 }
 
 async function loadRegistryUnits() {
@@ -490,6 +515,19 @@ async function loadRegistryUnits() {
     console.error(error);
     unitRegistryTableBody.innerHTML = '<tr><td colspan="14" class="empty-state">Unable to load live spreadsheet data.</td></tr>';
   }
+}
+
+function scheduleRegistryMidnightRefresh() {
+  const now = new Date();
+  const manilaDateKey = getManilaDateKey(now);
+  const [year, month, day] = manilaDateKey.split('-').map(Number);
+  const nextMidnightUtc = Date.UTC(year, month - 1, day + 1) - (8 * 60 * 60 * 1000);
+  const delayMs = Math.max(1000, nextMidnightUtc - now.getTime());
+
+  setTimeout(() => {
+    renderRegistryTable(registryRowsCache);
+    scheduleRegistryMidnightRefresh();
+  }, delayMs);
 }
 
 function normalizeSearchText(value) {
@@ -507,6 +545,10 @@ function renderRegistryTable(rows) {
         const clientName = normalizeSearchText(unit.clientName || '');
         return unitCode.includes(searchTerm) || clientName.includes(searchTerm);
       });
+
+  if (unitRegistryTableWrap) {
+    unitRegistryTableWrap.classList.toggle('is-scrollable', rows.length > 5);
+  }
 
   if (!filteredRows.length) {
     unitRegistryTableBody.innerHTML = '<tr><td colspan="14" class="empty-state">No matching units found.</td></tr>';
@@ -554,16 +596,6 @@ function renderRegistryTable(rows) {
       `;
     })
     .join('');
-}
-
-function computeRunningDays(dateValue) {
-  if (!dateValue) return '';
-
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const diffMs = Date.now() - date.getTime();
-  return String(Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24))));
 }
 
 function formatDateDisplay(value) {

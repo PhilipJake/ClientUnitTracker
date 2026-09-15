@@ -201,35 +201,46 @@ function normalizeRow(rawRow) {
 function computeRunningDays(dateValue) {
   if (!dateValue) return '';
 
-  const date = parseDateForManila(dateValue);
-  if (!date) return '';
+  const targetDateKey = getManilaDateKey(dateValue);
+  if (!targetDateKey) return '';
 
-  const philippineNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-  const philippineDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-
-  const nowAtMidnight = new Date(philippineNow.getFullYear(), philippineNow.getMonth(), philippineNow.getDate());
-  const targetAtMidnight = new Date(philippineDate.getFullYear(), philippineDate.getMonth(), philippineDate.getDate());
-  const diffDays = Math.max(0, Math.floor((nowAtMidnight.getTime() - targetAtMidnight.getTime()) / (1000 * 60 * 60 * 24)));
+  const nowDateKey = getManilaDateKey(new Date());
+  const nowAtMidnight = dateKeyToUtcMidnight(nowDateKey);
+  const targetAtMidnight = dateKeyToUtcMidnight(targetDateKey);
+  const diffDays = Math.max(0, Math.floor((nowAtMidnight - targetAtMidnight) / (1000 * 60 * 60 * 24)));
 
   return String(diffDays);
 }
 
-function parseDateForManila(dateValue) {
+function getManilaDateKey(dateValue) {
   const value = String(dateValue || '').trim();
   if (!value) return null;
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return value;
   }
 
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
     const [month, day, year] = value.split('/').map(Number);
-    return new Date(year, month - 1, day);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(parsed);
+  const dateParts = Object.fromEntries(parts.map(({ type, value: partValue }) => [type, partValue]));
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+}
+
+function dateKeyToUtcMidnight(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
 }
 
 function findValue(row, keys) {

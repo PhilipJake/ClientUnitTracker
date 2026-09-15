@@ -30,11 +30,13 @@
             </div>
             <div class="field-group">
               <label for="uploadedBranch">Uploaded Branch</label>
-              <input id="uploadedBranch" name="uploadedBranch" required />
+              <input id="uploadedBranch" name="uploadedBranch" placeholder="Assigned branch" readonly required />
             </div>
             <div class="field-group">
               <label for="currentLocation">Current Location</label>
-              <input id="currentLocation" name="currentLocation" required />
+              <select id="currentLocation" name="currentLocation" required>
+                <option value="">Select current location</option>
+              </select>
             </div>
             <div class="field-group">
               <label for="dateReceived">Date Received</label>
@@ -65,13 +67,29 @@
     </main>
 
     <script>
+      const uploadedBranchField = document.getElementById('uploadedBranch');
+      if (uploadedBranchField) {
+        uploadedBranchField.value = String(localStorage.getItem('unitflowBranch') || '').trim();
+      }
+
+      const currentLocationSelect = document.getElementById('currentLocation');
+      const assignedBranch = uploadedBranchField ? uploadedBranchField.value.trim() : '';
+      const locationOptions = [assignedBranch, 'BNB Rosales', 'Warehouse'].filter((value, index, values) => {
+        return value && values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index;
+      });
+      if (currentLocationSelect) {
+        currentLocationSelect.innerHTML = locationOptions.length
+          ? locationOptions.map((value) => `<option value="${value}">${value}</option>`).join('')
+          : '<option value="">Select current location</option>';
+        if (assignedBranch) currentLocationSelect.value = assignedBranch;
+      }
+
       document.getElementById('unitForm').addEventListener('submit', async (event) => {
         event.preventDefault();
 
         const form = event.currentTarget;
         const formData = new FormData(form);
         const payload = Object.fromEntries(formData.entries());
-
         try {
           const response = await fetch('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL', {
             method: 'POST',
