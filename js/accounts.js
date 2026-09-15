@@ -6,13 +6,35 @@ const cancelAccountModalBtn = document.getElementById('cancelAccountModalBtn');
 const accountForm = document.getElementById('accountForm');
 const accountBranchField = document.getElementById('accountBranch');
 const accountTypeSelect = document.getElementById('accountTypeSelect');
+const messageModalBackdrop = document.getElementById('messageModalBackdrop');
+const messageModalBody = document.getElementById('messageModalBody');
+const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
+const okMessageModalBtn = document.getElementById('okMessageModalBtn');
 let activeEditUsername = '';
+
+function showPopupMessage(message) {
+  if (!messageModalBackdrop || !messageModalBody) return;
+
+  messageModalBody.textContent = message;
+  messageModalBackdrop.classList.add('visible');
+  messageModalBackdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closePopupMessage() {
+  if (!messageModalBackdrop) return;
+  messageModalBackdrop.classList.remove('visible');
+  messageModalBackdrop.setAttribute('aria-hidden', 'true');
+}
 
 function getAllowedAccountTypesForRole() {
   const currentRole = localStorage.getItem('unitflowRole');
 
   if (currentRole === 'Super Admin') {
-    return ['Super Admin', 'Main Head Admin', 'Branch Head Admin', 'Office', 'Technician'];
+    return ['Super Admin', 'Administrator', 'Main Head Admin', 'Branch Head Admin', 'Office', 'Technician'];
+  }
+
+  if (currentRole === 'Administrator') {
+    return ['Administrator', 'Main Head Admin', 'Branch Head Admin', 'Office', 'Technician'];
   }
 
   if (currentRole === 'Main Head Admin') {
@@ -44,6 +66,7 @@ async function loadBranchOptions() {
   if (!accountBranchField) return;
 
   accountBranchField.innerHTML = '<option value="">Select branch</option>';
+  accountBranchField.insertAdjacentHTML('beforeend', '<option value="Main Office">Main Office</option>');
 
   try {
     const branches = await DATA.fetchBranches();
@@ -57,15 +80,49 @@ async function loadBranchOptions() {
     });
   } catch (error) {
     console.error('Unable to load branches for account form:', error);
-    const fallback = document.createElement('option');
-    fallback.value = 'Main Office';
-    fallback.textContent = 'Main Office';
-    accountBranchField.appendChild(fallback);
   }
 }
 
 function isProtectedSuperAdminAccount(accountType, currentRole) {
-  return currentRole === 'Main Head Admin' && String(accountType || '').trim() === 'Super Admin';
+  const normalizedRole = normalizeAccountRole(currentRole);
+  const normalizedAccountType = normalizeAccountRole(accountType);
+  return ['main head admin', 'administrator'].includes(normalizedRole) && normalizedAccountType === 'super admin';
+}
+
+function getDisplayedAccountType(accountType, currentRole) {
+  if (normalizeAccountRole(currentRole) === 'administrator' && normalizeAccountRole(accountType) === 'super admin') {
+    return 'Administrator';
+  }
+
+  return accountType;
+}
+
+function getDisplayedAccountUsername(username, accountType, currentRole) {
+  const isSuperAdminAccount = normalizeAccountRole(accountType) === 'super admin';
+  const isSuperAdminViewer = normalizeAccountRole(currentRole) === 'super admin';
+
+  return isSuperAdminAccount && !isSuperAdminViewer ? 'Protected account' : username;
+}
+
+function normalizeAccountRole(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function formatAccountCreatedDate(value) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) return '';
+
+  const isoDateMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s)/);
+  if (isoDateMatch) return `${isoDateMatch[2]}/${isoDateMatch[3]}/${isoDateMatch[1]}`;
+
+  const parsedDate = new Date(rawValue);
+  if (Number.isNaN(parsedDate.getTime())) return rawValue;
+
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(parsedDate);
 }
 
 async function loadAccounts() {
@@ -87,17 +144,19 @@ async function loadAccounts() {
         const accountType = row.accountType || row.role || row.userType || '';
         const email = row.email || '';
         const branch = row.branch || row.branchLocation || '';
-        const created = row.created || row.createdAt || row.dateCreated || '';
+        const created = formatAccountCreatedDate(row.created || row.createdAt || row.dateCreated || row['created at'] || '');
         const status = row.status || 'Active';
         const isProtected = isProtectedSuperAdminAccount(accountType, currentRole);
+        const displayedAccountType = getDisplayedAccountType(accountType, currentRole);
+        const displayedUsername = getDisplayedAccountUsername(username, accountType, currentRole);
 
         const statusClass = normalizeAccountStatus(status) === 'inactive' ? 'released' : 'in-stock';
 
         return `
           <tr data-account-username="${escapeHtml(username || '')}">
-            <td>${escapeHtml(username || '—')}</td>
+            <td>${escapeHtml(displayedUsername || '—')}</td>
             <td>${escapeHtml(fullName || '—')}</td>
-            <td>${escapeHtml(accountType || '—')}</td>
+            <td>${escapeHtml(displayedAccountType || '—')}</td>
             <td>${escapeHtml(email || '—')}</td>
             <td>${escapeHtml(branch || '—')}</td>
             <td>${escapeHtml(created || '—')}</td>
@@ -125,10 +184,12 @@ function openAccountModal(mode = 'create', account = null) {
   if (mode === 'edit' && account) {
     activeEditUsername = String(account.username || account.userName || account.accountUsername || '').trim();
     accountForm.dataset.mode = 'edit';
+    accountForm.dataset.createdAt = account.created || account.createdAt || account.dateCreated || account['created at'] || '';
     populateAccountForm(account);
   } else {
     activeEditUsername = '';
     accountForm.dataset.mode = 'create';
+    delete accountForm.dataset.createdAt;
     accountForm.reset();
   }
 
@@ -163,6 +224,7 @@ function closeAccountModal() {
   activeEditUsername = '';
   if (accountForm) {
     accountForm.dataset.mode = 'create';
+    delete accountForm.dataset.createdAt;
     accountForm.reset();
   }
 }
@@ -183,28 +245,33 @@ async function saveAccountToSheet(event) {
   const isEditMode = accountForm.dataset.mode === 'edit';
 
   if (!username || !password || !accountType || !fullName || !email) {
-    alert('Please complete all required account fields.');
+    showPopupMessage('Please complete all required account fields.');
+    return;
+  }
+
+  if (currentRole === 'Administrator' && accountType === 'Super Admin') {
+    showPopupMessage('Administrator cannot create or save a Super Admin account.');
     return;
   }
 
   if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
-    alert('Main Head Admin cannot edit or save a Super Admin account.');
+    showPopupMessage('Main Head Admin cannot edit or save a Super Admin account.');
     return;
   }
 
-  if (isEditMode && !['Super Admin', 'Main Head Admin'].includes(currentRole || '')) {
+  if (isEditMode && !['Super Admin', 'Administrator', 'Main Head Admin'].includes(currentRole || '')) {
     try {
       const rows = await DATA.fetchAccounts();
       const account = rows.find((item) => String(item.username || item.userName || item.accountUsername || '').trim() === (activeEditUsername || username));
       const previousType = String(account ? (account.accountType || account.role || account.userType || '') : '').trim();
 
       if (previousType && previousType !== accountType) {
-        alert('Only Super Admin and Main Head Admin can change an account type.');
+        showPopupMessage('Only Super Admin and Main Head Admin can change an account type.');
         return;
       }
     } catch (error) {
       console.error('Unable to validate account type change:', error);
-      alert('Only Super Admin and Main Head Admin can change an account type.');
+      showPopupMessage('Only Super Admin and Main Head Admin can change an account type.');
       return;
     }
   }
@@ -212,7 +279,7 @@ async function saveAccountToSheet(event) {
   const appScriptUrl = window.GS_CONFIG ? window.GS_CONFIG.appScriptUrl : '';
 
   if (!appScriptUrl || appScriptUrl === 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
-    alert('Please deploy the Apps Script and paste its Web App URL into gs/config.js before saving.');
+    showPopupMessage('Please deploy the Apps Script and paste its Web App URL into gs/config.js before saving.');
     return;
   }
 
@@ -227,8 +294,9 @@ async function saveAccountToSheet(event) {
     branchName: branch,
     accountBranch: branch,
     status: 'Active',
-    createdAt: new Date().toISOString(),
-    originalUsername: activeEditUsername || username
+      createdAt: isEditMode && accountForm.dataset.createdAt ? accountForm.dataset.createdAt : new Date().toISOString(),
+    originalUsername: activeEditUsername || username,
+    actorRole: currentRole || ''
   }).toString();
 
   try {
@@ -247,19 +315,19 @@ async function saveAccountToSheet(event) {
       throw new Error(message);
     }
 
-    alert(isEditMode ? 'Account updated successfully.' : 'Account saved successfully to the spreadsheet.');
+    showPopupMessage(isEditMode ? 'Account updated successfully.' : 'Account saved successfully to the spreadsheet.');
     closeAccountModal();
     loadAccounts();
   } catch (error) {
     console.error(error);
-    alert('Account save failed. Please confirm the Apps Script Web App URL is correct.');
+    showPopupMessage('Account save failed. Please confirm the Apps Script Web App URL is correct.');
   }
 }
 
 async function deleteAccountFromSheet(username) {
   const appScriptUrl = window.GS_CONFIG ? window.GS_CONFIG.appScriptUrl : '';
   if (!appScriptUrl || appScriptUrl === 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
-    alert('Please deploy the Apps Script and paste its Web App URL into gs/config.js before deleting.');
+    showPopupMessage('Please deploy the Apps Script and paste its Web App URL into gs/config.js before deleting.');
     return;
   }
 
@@ -269,7 +337,11 @@ async function deleteAccountFromSheet(username) {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({ action: 'deleteAccount', username }).toString()
+      body: new URLSearchParams({
+        action: 'deleteAccount',
+        username,
+        actorRole: localStorage.getItem('unitflowRole') || ''
+      }).toString()
     });
 
     const result = await response.json().catch(() => null);
@@ -279,11 +351,11 @@ async function deleteAccountFromSheet(username) {
       throw new Error(message);
     }
 
-    alert('Account deleted successfully.');
+    showPopupMessage('Account deleted successfully.');
     loadAccounts();
   } catch (error) {
     console.error(error);
-    alert('Account delete failed. Please confirm the Apps Script URL is correct.');
+    showPopupMessage('Account delete failed. Please confirm the Apps Script URL is correct.');
   }
 }
 
@@ -326,6 +398,22 @@ if (accountModalBackdrop) {
   });
 }
 
+if (closeMessageModalBtn) {
+  closeMessageModalBtn.addEventListener('click', closePopupMessage);
+}
+
+if (okMessageModalBtn) {
+  okMessageModalBtn.addEventListener('click', closePopupMessage);
+}
+
+if (messageModalBackdrop) {
+  messageModalBackdrop.addEventListener('click', (event) => {
+    if (event.target === messageModalBackdrop) {
+      closePopupMessage();
+    }
+  });
+}
+
 if (accountForm) {
   accountForm.addEventListener('submit', saveAccountToSheet);
 }
@@ -350,15 +438,15 @@ if (accountsTableBody) {
         const currentRole = localStorage.getItem('unitflowRole');
         const accountType = String(account.accountType || account.role || account.userType || '').trim();
 
-        if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
-          alert('Main Head Admin cannot edit a Super Admin account.');
+        if (isProtectedSuperAdminAccount(accountType, currentRole)) {
+          showPopupMessage(`${currentRole} cannot edit a Super Admin account.`);
           return;
         }
 
         await loadBranchOptions();
         openAccountModal('edit', account);
       } else {
-        alert('Account not found in the live spreadsheet.');
+        showPopupMessage('Account not found in the live spreadsheet.');
       }
     }
 
@@ -368,8 +456,8 @@ if (accountsTableBody) {
       const accountType = account ? String(account.accountType || account.role || account.userType || '').trim() : '';
       const currentRole = localStorage.getItem('unitflowRole');
 
-      if (currentRole === 'Main Head Admin' && accountType === 'Super Admin') {
-        alert('Main Head Admin cannot delete a Super Admin account.');
+      if (isProtectedSuperAdminAccount(accountType, currentRole)) {
+        showPopupMessage(`${currentRole} cannot delete a Super Admin account.`);
         return;
       }
 
@@ -381,6 +469,11 @@ if (accountsTableBody) {
 }
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && messageModalBackdrop && messageModalBackdrop.classList.contains('visible')) {
+    closePopupMessage();
+    return;
+  }
+
   if (event.key === 'Escape' && accountModalBackdrop && accountModalBackdrop.classList.contains('visible')) {
     closeAccountModal();
   }

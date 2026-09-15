@@ -69,6 +69,16 @@ Then visit:
 - You can change the refresh interval in `gs/config.js`.
 - The app expects the sheet to be exported as CSV and the first sheet/tab to be used by default.
 
+## Messaging
+
+The Messages page uses the Apps Script web app for both reads and writes. The deployed Apps Script entry file is `gs/code.gs`; redeploy the web app after updating that file. The script creates a `Messages` sheet automatically with these columns:
+
+`Message ID, Sender, Sender Name, Recipient, Recipient Name, Subject, Body, Sent At, Read`
+
+Users can send messages to other accounts, view inbox and sent messages, search message content, and mark inbox messages as read.
+
+Attachments are uploaded by Apps Script to a Google Drive folder named `ClientUnitTracker Attachments`. The Messages sheet stores the attachment names and Drive links. The browser limits each send to 20 MB total attachment data, and the Apps Script deployment must be authorized to use Google Drive.
+
 ## Sample data
 
 If you want the database to have live functionality, the sheet itself is the source of truth. There is no default demo dataset included in the app.

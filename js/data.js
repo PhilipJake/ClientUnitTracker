@@ -33,6 +33,19 @@ const DATA = {
   async fetchBranches() {
     const config = window.GS_CONFIG || {};
     return DATA.fetchSheet({ gid: config.branchesGid || config.gid || '0' });
+  },
+
+  async fetchMessages() {
+    const config = window.GS_CONFIG || {};
+    const url = `${config.appScriptUrl}?action=messages`;
+    const response = await fetch(url, { cache: 'no-store' });
+
+    if (!response.ok) {
+      throw new Error(`Messages request failed with status ${response.status}.`);
+    }
+
+    const result = await response.json();
+    return Array.isArray(result.rows) ? result.rows : [];
   }
 };
 

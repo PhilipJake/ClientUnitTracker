@@ -1,22 +1,26 @@
 const ACCESS_RULES = {
   'Super Admin': {
-    pages: ['../index.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
+    isReadOnly: false
+  },
+  Administrator: {
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
     isReadOnly: false
   },
   'Main Head Admin': {
-    pages: ['../index.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
     isReadOnly: false
   },
   'Office': {
-    pages: ['../index.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html', 'pages/branches.html', 'pages/accounts.html'],
     isReadOnly: true
   },
   'Branch Head Admin': {
-    pages: ['../index.html', 'pages/unit-registry.html'],
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html'],
     isReadOnly: false
   },
   Technician: {
-    pages: ['../index.html', 'pages/unit-registry.html'],
+    pages: ['../index.html', 'pages/messages.html', 'pages/unit-registry.html'],
     isReadOnly: false
   }
 };
@@ -29,7 +33,7 @@ function getCurrentRole() {
 function getCurrentPagePath() {
   const currentPath = window.location.pathname;
   const normalized = currentPath.split('/').pop();
-  return normalized === 'index.html' ? '../index.html' : currentPath.endsWith('unit-registry.html') ? 'pages/unit-registry.html' : currentPath.endsWith('branches.html') ? 'pages/branches.html' : currentPath.endsWith('accounts.html') ? 'pages/accounts.html' : '../index.html';
+  return normalized === 'index.html' ? '../index.html' : currentPath.endsWith('messages.html') ? 'pages/messages.html' : currentPath.endsWith('unit-registry.html') ? 'pages/unit-registry.html' : currentPath.endsWith('branches.html') ? 'pages/branches.html' : currentPath.endsWith('accounts.html') ? 'pages/accounts.html' : '../index.html';
 }
 
 function isAllowedPage(targetHref, allowedPages) {
@@ -116,6 +120,32 @@ function applyRoleRestrictions() {
   }
 }
 
+async function updateMessageNavCount() {
+  const counters = document.querySelectorAll('[data-message-nav-count]');
+  if (!counters.length || typeof DATA === 'undefined' || typeof DATA.fetchMessages !== 'function') return;
+
+  try {
+    const username = String(localStorage.getItem('unitflowUser') || '').trim().toLowerCase();
+    const rows = await DATA.fetchMessages();
+    const unreadCount = rows.filter((message) => {
+      const recipients = [message.Recipient || message.recipient, message.Cc || message.cc, message.Bcc || message.bcc]
+        .join(',')
+        .split(',')
+        .map((recipient) => String(recipient || '').trim().toLowerCase())
+        .filter(Boolean);
+      const read = String(message.Read || message.read || '').trim().toLowerCase();
+      return recipients.includes(username) && !['true', 'yes', '1'].includes(read);
+    }).length;
+
+    counters.forEach((counter) => {
+      counter.hidden = unreadCount === 0;
+      counter.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+    });
+  } catch (error) {
+    console.warn('Unable to load unread message count:', error);
+  }
+}
+
 function getLoggedInUserName() {
   const fullName = localStorage.getItem('unitflowFullName');
   if (fullName && fullName.trim()) return fullName.trim();
@@ -145,6 +175,9 @@ function initUserMenu() {
   const logoutButton = document.getElementById('logoutButton');
 
   applyRoleRestrictions();
+  updateMessageNavCount();
+  const refreshMs = Number((window.GS_CONFIG && window.GS_CONFIG.refreshMs) || 15000);
+  window.setInterval(updateMessageNavCount, Math.max(5000, refreshMs));
 
   if (userNameElement) {
     userNameElement.textContent = getLoggedInUserName();

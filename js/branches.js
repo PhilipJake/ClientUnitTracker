@@ -10,8 +10,26 @@ const branchNameInput = document.getElementById('branchName');
 const branchModalTitle = document.getElementById('branchModalTitle');
 const branchSubmitButton = document.getElementById('saveBranchButton');
 const headAdminSelect = document.getElementById('headAdminSelect');
+const messageModalBackdrop = document.getElementById('messageModalBackdrop');
+const messageModalBody = document.getElementById('messageModalBody');
+const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
+const okMessageModalBtn = document.getElementById('okMessageModalBtn');
 let activeEditBranchName = '';
 let activeBranchRecord = null;
+
+function showPopupMessage(message) {
+  if (!messageModalBackdrop || !messageModalBody) return;
+
+  messageModalBody.textContent = message;
+  messageModalBackdrop.classList.add('visible');
+  messageModalBackdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closePopupMessage() {
+  if (!messageModalBackdrop) return;
+  messageModalBackdrop.classList.remove('visible');
+  messageModalBackdrop.setAttribute('aria-hidden', 'true');
+}
 
 async function loadBranches() {
   try {
@@ -62,7 +80,7 @@ async function loadHeadAdminOptions() {
     const accounts = await DATA.fetchAccounts();
     const filtered = accounts.filter((row) => {
       const role = String(row.accountType || row.accounttype || row.role || row.userType || '').trim();
-      return role && !['Super Admin', 'Main Head Admin', 'Office'].includes(role);
+      return role && !['Super Admin', 'Office'].includes(role);
     });
 
     if (!filtered.length) {
@@ -171,7 +189,7 @@ function populateBranchForm(branch) {
 
   const formData = new FormData(branchForm);
   const fields = {
-    branchType: branch.branchType || branch.branchtype || branch.code || '',
+    branchType: branch.branchCode || branch.branchcode || branch.branchType || branch.branchtype || branch.code || '',
     branchName: branch.branchName || branch.branchname || branch.name || '',
     branchLocation: branch.location || branch.branchLocation || branch.address || '',
     headAdminSelect: branch.manager || branch.branchManager || branch.headAdmin || branch.headadmin || branch.head || ''
@@ -200,20 +218,20 @@ async function saveBranchToSheet(event) {
   const branchLocationFromForm = String(formData.get('branchLocation') || '').trim();
   const headAdminFromForm = String(formData.get('headAdminSelect') || '').trim();
 
-  const branchType = branchTypeFromForm || (activeBranchRecord && (activeBranchRecord.branchType || activeBranchRecord.branchtype || activeBranchRecord.code)) || '';
+  const branchType = branchTypeFromForm || (activeBranchRecord && (activeBranchRecord.branchCode || activeBranchRecord.branchcode || activeBranchRecord.branchType || activeBranchRecord.branchtype || activeBranchRecord.code)) || '';
   const branchName = String(formData.get('branchName') || '').trim();
   const branchLocation = branchLocationFromForm || (activeBranchRecord && (activeBranchRecord.location || activeBranchRecord.branchLocation || activeBranchRecord.address)) || '';
   const headAdmin = headAdminFromForm || (activeBranchRecord && (activeBranchRecord.manager || activeBranchRecord.branchManager || activeBranchRecord.headAdmin || activeBranchRecord.headadmin || activeBranchRecord.head)) || '';
 
   if (!branchType || !branchName || !branchLocation || !headAdmin) {
-    alert('Please complete all branch fields.');
+    showPopupMessage('Please complete all branch fields.');
     return;
   }
 
   const appScriptUrl = window.GS_CONFIG ? window.GS_CONFIG.appScriptUrl : '';
 
   if (!appScriptUrl || appScriptUrl === 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
-    alert('Please deploy the Apps Script and paste its Web App URL into gs/config.js before saving.');
+    showPopupMessage('Please deploy the Apps Script and paste its Web App URL into gs/config.js before saving.');
     return;
   }
 
@@ -247,12 +265,12 @@ async function saveBranchToSheet(event) {
 
     await syncAccountBranchAssignment(headAdmin, branchName);
 
-    alert(isEditMode ? 'Branch updated successfully to the spreadsheet.' : 'Branch saved successfully to the spreadsheet.');
+    showPopupMessage(isEditMode ? 'Branch updated successfully to the spreadsheet.' : 'Branch saved successfully to the spreadsheet.');
     closeBranchModal();
     loadBranches();
   } catch (error) {
     console.error(error);
-    alert('Branch save failed. Please confirm the Apps Script Web App URL is correct.');
+    showPopupMessage('Branch save failed. Please confirm the Apps Script Web App URL is correct.');
   }
 }
 
@@ -322,6 +340,22 @@ if (branchModalBackdrop) {
   });
 }
 
+if (closeMessageModalBtn) {
+  closeMessageModalBtn.addEventListener('click', closePopupMessage);
+}
+
+if (okMessageModalBtn) {
+  okMessageModalBtn.addEventListener('click', closePopupMessage);
+}
+
+if (messageModalBackdrop) {
+  messageModalBackdrop.addEventListener('click', (event) => {
+    if (event.target === messageModalBackdrop) {
+      closePopupMessage();
+    }
+  });
+}
+
 if (branchTypeSelect) {
   branchTypeSelect.addEventListener('change', syncBranchName);
 }
@@ -353,7 +387,7 @@ if (branchesTableBody) {
       if (branch) {
         openBranchModal('edit', branch);
       } else {
-        alert('Branch not found in the live spreadsheet.');
+        showPopupMessage('Branch not found in the live spreadsheet.');
       }
     }
 
@@ -363,7 +397,7 @@ if (branchesTableBody) {
 
       const appScriptUrl = window.GS_CONFIG ? window.GS_CONFIG.appScriptUrl : '';
       if (!appScriptUrl) {
-        alert('Please configure the Apps Script URL before deleting a branch.');
+        showPopupMessage('Please configure the Apps Script URL before deleting a branch.');
         return;
       }
 
@@ -383,17 +417,22 @@ if (branchesTableBody) {
           throw new Error(message);
         }
 
-        alert('Branch deleted successfully.');
+        showPopupMessage('Branch deleted successfully.');
         loadBranches();
       } catch (error) {
         console.error('Delete branch failed:', error);
-        alert('Delete failed. Please confirm the Apps Script URL is correct.');
+        showPopupMessage('Delete failed. Please confirm the Apps Script URL is correct.');
       }
     }
   });
 }
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && messageModalBackdrop && messageModalBackdrop.classList.contains('visible')) {
+    closePopupMessage();
+    return;
+  }
+
   if (event.key === 'Escape' && branchModalBackdrop && branchModalBackdrop.classList.contains('visible')) {
     closeBranchModal();
   }

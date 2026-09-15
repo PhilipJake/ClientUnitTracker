@@ -19,6 +19,11 @@
           <span class="nav-icon">▣</span>
           Overview
         </a>
+        <a class="nav-item messages-nav-item" href="messages.html" aria-label="Open Messages">
+          <span class="nav-icon">✉</span>
+          Messages
+          <span class="nav-count" data-message-nav-count hidden></span>
+        </a>
         <a class="nav-item" href="unit-registry.html">
           <span class="nav-icon">▤</span>
           Unit registry
@@ -117,6 +122,7 @@
               <select id="accountTypeSelect" name="accountTypeSelect" required>
                 <option value="">Select account type</option>
                 <option value="Super Admin">Super Admin</option>
+                <option value="Administrator">Administrator</option>
                 <option value="Main Head Admin">Main Head Admin</option>
                 <option value="Branch Head Admin">Branch Head Admin</option>
                 <option value="Office">Office</option>
@@ -147,6 +153,19 @@
             <button type="submit" class="action-btn primary">Save Account</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="messageModalBackdrop" aria-hidden="true">
+      <div class="modal message-modal" role="dialog" aria-modal="true" aria-labelledby="messageModalTitle">
+        <div class="modal-header">
+          <h3 id="messageModalTitle">Notice</h3>
+          <button class="modal-close" id="closeMessageModalBtn" aria-label="Close message">×</button>
+        </div>
+        <div class="modal-body" id="messageModalBody"></div>
+        <div class="modal-actions">
+          <button type="button" class="action-btn primary" id="okMessageModalBtn">OK</button>
+        </div>
       </div>
     </div>
 
